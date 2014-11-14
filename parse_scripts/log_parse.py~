@@ -1,0 +1,55 @@
+import datetime
+import matplotlib.pyplot as plt
+
+def get_dicts(filename):
+    fin = open(filename, 'r')
+    dicts = []
+    keys = fin.readline().split('\t')
+    for line in fin:
+        values = line.split('\t')
+        dictionary = {}
+        for i in range(len(keys)):
+            dictionary[keys[i]] = values[i]
+        dicts.append(dictionary)
+    return dicts
+
+def get_packet_dicts(csv_filename):
+    fin = open(csv_filename, 'r')
+    
+    packets_dict = {} # keys: packet timestamps, values: dictionary of (data tile -> data value)
+    
+    for line in fin:
+        line = line.split(',')
+        date = line[0].split('T')[0].split('-')
+        time = line[0].split('T')[1].split(':')
+        time = datetime.datetime(int(date[0]), int(date[1]), int(date[2]), int(time[0]), int(time[1]), int(time[2].split('.')[0]), int(time[2].split('.')[1])*1000)
+        if not time in packets_dict.keys():
+            packets_dict[time] = {}
+        packet = packets_dict[time]
+        for i in range(8, len(line)-1, 2):
+            packet[line[i]] = line[i+1]
+    
+    packets = []
+    for time, dictionary in packets_dict.iteritems():
+        packet = {}
+        packet['time'] = time
+        packet.update(dictionary)
+        packets.append(packet)
+    
+    return packets
+
+def get_col(dict_list, col_name, floats=False, map_fcn=lambda x:x):
+    vals = [dct[col_name] for dct in dict_list if col_name in dct.keys()]
+    if floats:
+        vals = map(float, vals)
+    vals = map(map_fcn, vals)
+    return vals
+
+def plot(*args):
+    for i in range(0, len(args), 2):
+        x = args[i]
+        y = map(float, args[i+1])
+        if x == 'samples':
+            x = range(0, len(y))
+        plt.plot(x, y, 'o-');
+    plt.show()
