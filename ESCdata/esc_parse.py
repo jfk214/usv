@@ -1,0 +1,32 @@
+import datetime
+import matplotlib.pyplot as plt
+
+fin_speeds = open('time_speed', 'r')
+fin_esc = open('esc_data', 'r')
+
+times = []
+speeds = []
+
+esc_times = []
+esc_power = []
+
+for line in fin_speeds:
+    line = line.split('\t')
+    time = line[0].split(':')
+    time = datetime.datetime(2014, 11, 10, int(time[0]), int(time[1]), int(time[2].split('.')[0]), int(time[2].split('.')[0]))
+    times.append(time)
+    speeds.append(float(line[1]))
+
+start = times[0]
+for i in range(len(times)):
+    times[i] = float((times[i] - start).seconds + (times[i] - start).microseconds/1000000.0)
+
+
+fin_esc.readline()
+for line in fin_esc:
+    line = line.split(',')
+    esc_times.append(float(line[0]))
+    esc_power.append(float(line[1])*float(line[2]))
+
+plt.plot(map(lambda a:a+279, times), map(lambda a:a*100, speeds), esc_times, esc_power)
+plt.show()

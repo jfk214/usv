@@ -1,0 +1,109 @@
+import datetime
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn import linear_model
+
+def get_dicts(filename):
+    fin = open(filename, 'r')
+    dicts = []
+    keys = fin.readline().split('\t')
+    for line in fin:
+        values = line.split('\t')
+        dictionary = {}
+        for i in range(len(keys)):
+            dictionary[keys[i]] = values[i]
+        dicts.append(dictionary)
+    return dicts
+
+def get_packet_dicts(csv_filename):
+    fin = open(csv_filename, 'r')
+    
+    packets_dict = {} # keys: packet timestamps, values: dictionary of (data title -> data value)
+    
+    for line in fin:
+        line = line.split(',')
+        time = parse_datetime(line[0])
+        if not time in packets_dict.keys():
+            packets_dict[time] = {}
+        packet = packets_dict[time]
+        packet['message_type'] = line[7]
+        for i in range(8, len(line)-1, 2):
+            packet[line[i]] = line[i+1]
+    
+    packets = []
+    for time, dictionary in packets_dict.iteritems():
+        packet = {}
+        packet['time'] = time
+        packet.update(dictionary)
+        packets.append(packet)
+    
+    return packets
+
+def get_rows(dict_list, cond=lambda x:True):
+    return [dct for dct in dict_list if cond(dct)]
+
+def get_col(dict_list, col_name, func=lambda x:x, cond=lambda x:True):
+    return [func(dct[col_name]) for dct in dict_list if (col_name in dct.keys()) and cond(func(dct[col_name]))]
+
+def plot(line_type, *args):
+    for i in range(0, len(args), 2):
+        x = args[i]
+        y = map(float, args[i+1])
+        if x == 'samples':
+            x = range(0, len(y))
+        plt.plot(x, y, line_type+'b');
+    plt.show()
+
+def ransac(x, y, plot=False):
+    x = map(float, x)
+    min_x = min(x)
+    max_x = max(x)
+    x = np.array(map(lambda a:[a], x))
+    y = np.array(map(float, y))
+    
+    model = linear_model.RANSACRegressor(linear_model.LinearRegression())
+    model.fit(x, y)
+    inlier_mask = model.inlier_mask_
+    outlier_mask = np.logical_not(inlier_mask)
+    
+    line_x = np.arange(min_x, max_x)
+    line_y = model.predict(line_x[:, np.newaxis])
+    
+    if plot:
+        plt.plot(x[inlier_mask], y[inlier_mask], '.g', label='Inliers')
+        plt.plot(x[outlier_mask], y[outlier_mask], '.r', label='Outliers')
+        plt.plot(line_x, line_y, '-b', label='RANSAC best fit')
+        plt.legend(loc = 'upper right');
+        plt.show()
+    
+    return [model.estimator_.coef_[0][0], model.estimator_.intercept_[0]]
+
+def parse_datetime(time_string):
+    date = time_string.split('T')[0].split('-')
+    year = int(date[0])
+    month = int(date[1])
+    day = int(date[2])
+    time = time_string.split('T')[1].split(':')
+    hour = int(time[0])
+    minute = int(time[1])
+    second = int(time[2].split('.')[0])
+    microsecond = int(time[2].split('.')[1])*1000
+    return datetime.datetime(year, month, day, hour, minute, second, microsecond)
+
+def get_telem_rate(times):
+    telem_rate = 0.0
+    prev_time = 0
+    count = 0
+    
+    for time in times:
+        if prev_time != 0:
+            dif = (time - prev_time).total_seconds()
+            if dif > 0:
+                telem_rate += dif
+        prev_time = time
+        count += 1
+    telem_rate /= count
+    print telem_rate
+    print count
+    telem_rate = 1/telem_rate
+    return telem_rate
